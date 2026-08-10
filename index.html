@@ -21,7 +21,7 @@
       user-select: none;
       -webkit-user-select: none;
       overflow: hidden;
-      background-color: #03000a;
+      background-color: #020006;
       margin: 0;
       padding: 0;
       width: 100vw;
@@ -42,13 +42,24 @@
     .glow-yellow {
       text-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 0 20px rgba(245, 158, 11, 0.4);
     }
+    /* CRT Scanline Overlay simulation */
+    .crt::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      z-index: 10;
+      background-size: 100% 4px, 6px 100%;
+      pointer-events: none;
+    }
     touch-action: manipulation;
   </style>
 </head>
-<body class="w-screen h-screen bg-[#03000a] text-white">
+<body class="w-screen h-screen bg-[#020006] text-white">
 
   <!-- Root Div for React App -->
-  <div id="root" class="w-full h-full"></div>
+  <div id="root" class="w-full h-full crt"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -61,6 +72,7 @@
         this.muted = savedMuted === 'true';
         this.menuMusicInterval = null;
         this.gameOverMusicInterval = null;
+        this.gameplayBeatInterval = null;
       }
 
       init() {
@@ -88,6 +100,10 @@
         if (this.gameOverMusicInterval) {
           clearInterval(this.gameOverMusicInterval);
           this.gameOverMusicInterval = null;
+        }
+        if (this.gameplayBeatInterval) {
+          clearInterval(this.gameplayBeatInterval);
+          this.gameplayBeatInterval = null;
         }
       }
 
@@ -194,6 +210,7 @@
         osc.stop(now + 0.3);
       }
 
+      // Enhanced menu loop: Arpeggiated melody with low bassline rhythm
       startMenuMusic() {
         if (this.muted) return;
         this.stopAllMusic();
@@ -201,30 +218,77 @@
         const ctx = this.ctx;
 
         const arpeggio = [261.63, 311.13, 392.00, 466.16, 392.00, 311.13];
+        const bassline = [130.81, 130.81, 155.56, 155.56, 196.00, 196.00];
         let step = 0;
 
         const playStep = () => {
           if (this.muted) return;
           const now = ctx.currentTime;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
 
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(arpeggio[step % arpeggio.length], now);
+          // Arpeggio Lead
+          const leadOsc = ctx.createOscillator();
+          const leadGain = ctx.createGain();
+          leadOsc.type = 'sawtooth';
+          leadOsc.frequency.setValueAtTime(arpeggio[step % arpeggio.length], now);
+          leadGain.gain.setValueAtTime(0.04, now);
+          leadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          leadOsc.connect(leadGain);
+          leadGain.connect(ctx.destination);
+          leadOsc.start(now);
+          leadOsc.stop(now + 0.18);
 
-          gain.gain.setValueAtTime(0.06, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          // Rhythmic Sub-Bass
+          if (step % 2 === 0) {
+            const bassOsc = ctx.createOscillator();
+            const bassGain = ctx.createGain();
+            bassOsc.type = 'triangle';
+            bassOsc.frequency.setValueAtTime(bassline[Math.floor(step / 2) % bassline.length], now);
+            bassGain.gain.setValueAtTime(0.1, now);
+            bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            bassOsc.connect(bassGain);
+            bassGain.connect(ctx.destination);
+            bassOsc.start(now);
+            bassOsc.stop(now + 0.35);
+          }
 
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(now);
-          osc.stop(now + 0.18);
           step++;
         };
 
         playStep();
         this.menuMusicInterval = setInterval(playStep, 200);
+      }
+
+      // Enhanced tension rhythm in-game: Low heartbeat bass engine
+      startGameBeat(level) {
+        if (this.muted) return;
+        this.stopAllMusic();
+        this.init();
+        const ctx = this.ctx;
+
+        let highPitch = true;
+        const playBeat = () => {
+          if (this.muted) return;
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(highPitch ? 85 : 70, now);
+          
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.2);
+          highPitch = !highPitch;
+        };
+
+        // Beat speed scales up with levels
+        const intervalTime = Math.max(250, 750 - level * 45);
+        this.gameplayBeatInterval = setInterval(playBeat, intervalTime);
       }
 
       startGameOverMusic() {
@@ -302,10 +366,10 @@
       const gameVars = useRef({
         player: {
           x: GAME_WIDTH / 2,
-          y: GAME_HEIGHT - 80,
-          width: 60,
-          height: 48,
-          speed: 8,
+          y: GAME_HEIGHT - 90,
+          width: 64,
+          height: 52,
+          speed: 8.5,
           cooldown: 0,
           maxCooldown: 10, 
           muzzleFlash: 0,
@@ -319,20 +383,22 @@
         particles: [],
         stars: [],
         powerups: [],
+        nebulae: [],
         screenShake: 0,
         spawnTimer: 0,
         nextSpawnTime: 80,
       });
 
+      // Play music based on states
       useEffect(() => {
         if (gameState === 'START') {
           sound.startMenuMusic();
         } else if (gameState === 'GAMEOVER') {
           sound.startGameOverMusic();
         } else if (gameState === 'PLAYING') {
-          sound.stopAllMusic();
+          sound.startGameBeat(level);
         }
-      }, [gameState, isMuted]);
+      }, [gameState, isMuted, level]);
 
       const toggleMute = () => {
         const nextMuted = !isMuted;
@@ -340,6 +406,7 @@
         setIsMuted(nextMuted);
       };
 
+      // Keyboard listener setup
       useEffect(() => {
         const handleKeyDown = (e) => {
           if (e.code === 'Space') {
@@ -378,18 +445,30 @@
         };
       }, [difficulty]);
 
+      // Starfield & Cosmic Nebulae Initialization
       useEffect(() => {
         const initialStars = [];
         for (let i = 0; i < 120; i++) {
+          const depth = Math.random();
           initialStars.push({
             x: Math.random() * GAME_WIDTH,
             y: Math.random() * GAME_HEIGHT,
-            size: Math.random() * 2 + 0.5,
-            speed: Math.random() * 2.5 + 0.5,
+            size: depth * 2.2 + 0.4,
+            speed: depth * 3 + 0.4,
+            // Multi-colored stars (deep space effect)
+            color: depth > 0.85 ? '#67e8f9' : depth < 0.15 ? '#fcd34d' : '#ffffff',
             opacity: Math.random() * 0.8 + 0.2
           });
         }
+        
+        // Cosmic gas clouds
+        const initialNebulae = [
+          { x: GAME_WIDTH * 0.25, y: GAME_HEIGHT * 0.2, r: 250, color: 'rgba(79, 70, 229, 0.15)', driftSpeed: 0.1 }, // Indigo
+          { x: GAME_WIDTH * 0.75, y: GAME_HEIGHT * 0.6, r: 300, color: 'rgba(219, 39, 119, 0.12)', driftSpeed: 0.08 }  // Pink
+        ];
+
         gameVars.current.stars = initialStars;
+        gameVars.current.nebulae = initialNebulae;
       }, []);
 
       useEffect(() => {
@@ -515,28 +594,28 @@
         if (shootTrigger && v.player.cooldown === 0) {
           if (v.player.doubleFireTimer > 0) {
             v.lasers.push({
-              x: v.player.x - 14,
+              x: v.player.x - 18,
               y: v.player.y - 15,
               speed: 12,
-              width: 4,
-              height: 16,
+              width: 5,
+              height: 18,
               color: '#38bdf8'
             });
             v.lasers.push({
-              x: v.player.x + 14,
+              x: v.player.x + 18,
               y: v.player.y - 15,
               speed: 12,
-              width: 4,
-              height: 16,
+              width: 5,
+              height: 18,
               color: '#38bdf8'
             });
           } else {
             v.lasers.push({
               x: v.player.x,
-              y: v.player.y - 18,
+              y: v.player.y - 20,
               speed: 12,
-              width: 4,
-              height: 16,
+              width: 5,
+              height: 18,
               color: '#06b6d4'
             });
           }
@@ -561,7 +640,7 @@
           const speedMod = difficulty === 'easy' ? 1.8 : difficulty === 'hard' ? 3.5 : 2.5;
           let speed = Math.random() * 1.5 + speedMod + (level * 0.25);
           let points = 10;
-          let color = '#22c55e'; // Green Space Invader Icon
+          let color = '#22c55e';
 
           if (rand < 0.25) {
             type = 'small';
@@ -569,14 +648,14 @@
             hp = 1;
             speed = Math.random() * 2 + speedMod + 2.0 + (level * 0.3);
             points = 20;
-            color = '#f59e0b'; // Yellow Seeker Drone Icon
+            color = '#f59e0b';
           } else if (rand > 0.82) {
             type = 'large';
             size = 46;
             hp = 3 + Math.floor(level / 2);
             speed = Math.random() * 0.8 + speedMod - 1.0 + (level * 0.1);
             points = 35;
-            color = '#ec4899'; // Pink Cratered Asteroid Icon
+            color = '#ec4899';
           }
 
           v.enemies.push({
@@ -595,6 +674,16 @@
         }
 
         // 3. PHYSICAL UPDATES
+        // Nebula Clouds slow drift
+        v.nebulae.forEach(n => {
+          n.y += n.driftSpeed;
+          if (n.y - n.r > GAME_HEIGHT) {
+            n.y = -n.r;
+            n.x = Math.random() * GAME_WIDTH;
+          }
+        });
+
+        // Stars
         v.stars.forEach(s => {
           s.y += s.speed;
           if (s.y > GAME_HEIGHT) {
@@ -759,17 +848,30 @@
           if (v.screenShake < 0.5) v.screenShake = 0;
         }
 
-        // Background
-        ctx.fillStyle = '#03000a';
+        // Background space clear
+        ctx.fillStyle = '#020006';
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-        // Stars
+        // Draw Cosmic Nebulae Gas Clouds (Glow effect)
+        v.nebulae.forEach(n => {
+          const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+          g.addColorStop(0, n.color);
+          g.addColorStop(1, 'rgba(2, 0, 6, 0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Stars (colored depth)
         v.stars.forEach(s => {
-          ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+          ctx.fillStyle = s.color;
+          ctx.globalAlpha = s.opacity;
           ctx.beginPath();
           ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
           ctx.fill();
         });
+        ctx.globalAlpha = 1.0;
 
         // Lasers
         v.lasers.forEach(l => {
@@ -780,31 +882,51 @@
           ctx.shadowBlur = 0;
         });
 
-        // Power-ups
+        // Enhanced Power-ups with custom vector drawings
         v.powerups.forEach(p => {
           ctx.save();
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 15;
           ctx.shadowColor = p.color;
           ctx.strokeStyle = p.color;
           ctx.lineWidth = 2.5;
 
-          ctx.strokeRect(-12, -12, 24, 24);
-          
-          ctx.fillStyle = p.color;
-          ctx.font = 'bold 12px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          let symbol = 'P';
-          if (p.type === 'DOUBLE_FIRE') symbol = 'D';
-          if (p.type === 'AUTO_FIRE') symbol = 'A';
-          if (p.type === 'SHIELD') symbol = 'S';
-          ctx.fillText(symbol, 0, 0);
+          // Capsule polygon border
+          ctx.beginPath();
+          ctx.arc(0, -6, 10, Math.PI, 0);
+          ctx.lineTo(10, 6);
+          ctx.arc(0, 6, 10, 0, Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+
+          // Symbol vector representations inside
+          ctx.beginPath();
+          if (p.type === 'DOUBLE_FIRE') {
+            // Two vertical neon lines
+            ctx.moveTo(-4, -6); ctx.lineTo(-4, 6);
+            ctx.moveTo(4, -6); ctx.lineTo(4, 6);
+          } else if (p.type === 'AUTO_FIRE') {
+            // Lightning Bolt symbol
+            ctx.moveTo(3, -7);
+            ctx.lineTo(-4, 0);
+            ctx.lineTo(2, 0);
+            ctx.lineTo(-3, 7);
+          } else if (p.type === 'SHIELD') {
+            // Shield Crest shape
+            ctx.moveTo(0, -6);
+            ctx.lineTo(5, -4);
+            ctx.lineTo(4, 2);
+            ctx.lineTo(0, 6);
+            ctx.lineTo(-4, 2);
+            ctx.lineTo(-5, -4);
+            ctx.closePath();
+          }
+          ctx.stroke();
           ctx.restore();
         });
 
-        // Enemies (Custom Obstacle Icons)
+        // Enemies
         v.enemies.forEach(e => {
           ctx.save();
           ctx.translate(e.x, e.y);
@@ -816,27 +938,24 @@
           ctx.lineWidth = 2.5;
 
           if (e.type === 'small') {
-            // Interceptor Drone Icon: Tri-sail wing outline
             ctx.beginPath();
-            ctx.moveTo(0, -e.size); // nose
-            ctx.lineTo(e.size * 0.7, e.size * 0.2); // wing right
-            ctx.lineTo(e.size * 0.2, e.size * 0.4); // body indent
-            ctx.lineTo(e.size * 0.4, e.size * 0.8); // thruster-tail right
-            ctx.lineTo(0, e.size * 0.5); // center engine indent
-            ctx.lineTo(-e.size * 0.4, e.size * 0.8); // thruster-tail left
+            ctx.moveTo(0, -e.size); 
+            ctx.lineTo(e.size * 0.7, e.size * 0.2); 
+            ctx.lineTo(e.size * 0.2, e.size * 0.4); 
+            ctx.lineTo(e.size * 0.4, e.size * 0.8); 
+            ctx.lineTo(0, e.size * 0.5); 
+            ctx.lineTo(-e.size * 0.4, e.size * 0.8); 
             ctx.lineTo(-e.size * 0.2, e.size * 0.4);
-            ctx.lineTo(-e.size * 0.7, e.size * 0.2); // wing left
+            ctx.lineTo(-e.size * 0.7, e.size * 0.2); 
             ctx.closePath();
             ctx.stroke();
 
-            // Inner glowing orange core circle
             ctx.fillStyle = '#f97316';
             ctx.beginPath();
             ctx.arc(0, 0, 4, 0, Math.PI * 2);
             ctx.fill();
 
           } else if (e.type === 'large') {
-            // Rocky Asteroid Icon: Jagged shape with multi-layered crater details
             ctx.beginPath();
             const pts = 10;
             for (let i = 0; i < pts; i++) {
@@ -850,14 +969,13 @@
             ctx.closePath();
             ctx.stroke();
 
-            // Draw circular craters
             const drawCrater = (cx, cy, cr) => {
               ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
               ctx.lineWidth = 1.5;
               ctx.beginPath();
               ctx.arc(cx, cy, cr, 0, Math.PI * 2);
               ctx.stroke();
-              ctx.fillStyle = 'rgba(3, 0, 10, 0.5)';
+              ctx.fillStyle = 'rgba(2, 0, 6, 0.5)';
               ctx.fill();
             };
 
@@ -870,17 +988,16 @@
               ctx.fill();
             }
           } else {
-            // Space Invader Alien Icon: Skull Head + antennas + wing appendages
             ctx.beginPath();
-            ctx.moveTo(0, -e.size * 0.8); // Top of head
+            ctx.moveTo(0, -e.size * 0.8); 
             ctx.lineTo(e.size * 0.4, -e.size * 0.8);
-            ctx.lineTo(e.size * 0.6, -e.size * 0.5); // Ears
+            ctx.lineTo(e.size * 0.6, -e.size * 0.5); 
             ctx.lineTo(e.size * 0.6, -e.size * 0.2);
-            ctx.lineTo(e.size * 0.9, e.size * 0.1); // Wings outer
+            ctx.lineTo(e.size * 0.9, e.size * 0.1); 
             ctx.lineTo(e.size * 0.5, e.size * 0.3);
-            ctx.lineTo(e.size * 0.4, e.size * 0.8); // Tentacles base
+            ctx.lineTo(e.size * 0.4, e.size * 0.8); 
             ctx.lineTo(e.size * 0.2, e.size * 0.5);
-            ctx.lineTo(0, e.size * 0.7); // Bottom center
+            ctx.lineTo(0, e.size * 0.7); 
             ctx.lineTo(-e.size * 0.2, e.size * 0.5);
             ctx.lineTo(-e.size * 0.4, e.size * 0.8);
             ctx.lineTo(-e.size * 0.5, e.size * 0.3);
@@ -891,7 +1008,6 @@
             ctx.closePath();
             ctx.stroke();
 
-            // Glow neon eyes
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
             ctx.arc(-e.size * 0.22, -e.size * 0.15, 3.5, 0, Math.PI * 2);
@@ -901,56 +1017,94 @@
           ctx.restore();
         });
 
-        // Player Spacecraft
+        // Upgraded Player Rocket Spacecraft
         if (v.player.invincible === 0 || Math.floor(Date.now() / 80) % 2 === 0) {
           ctx.save();
           ctx.translate(v.player.x, v.player.y);
 
-          const engineGlow = Math.random() * 12 + 8;
-          ctx.fillStyle = '#f97316';
-          ctx.shadowBlur = engineGlow;
-          ctx.shadowColor = '#f97316';
+          // Advanced Multi-tiered Engine Thruster fire
+          const thrusterHeight = Math.random() * 15 + 10;
+          ctx.fillStyle = '#ef4444'; // Red outer flame
           ctx.beginPath();
-          ctx.moveTo(-10, 16);
-          ctx.lineTo(0, 16 + engineGlow);
-          ctx.lineTo(10, 16);
+          ctx.moveTo(-12, 16);
+          ctx.lineTo(0, 16 + thrusterHeight + 6);
+          ctx.lineTo(12, 16);
           ctx.closePath();
           ctx.fill();
 
+          ctx.fillStyle = '#f97316'; // Orange inner flame
+          ctx.beginPath();
+          ctx.moveTo(-8, 16);
+          ctx.lineTo(0, 16 + thrusterHeight);
+          ctx.lineTo(8, 16);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#fde047'; // Yellow hot core
+          ctx.beginPath();
+          ctx.moveTo(-4, 16);
+          ctx.lineTo(0, 16 + thrusterHeight - 6);
+          ctx.lineTo(4, 16);
+          ctx.closePath();
+          ctx.fill();
+
+          // High-fidelity Metallic Cyber Spaceship Outline Drawing
           ctx.strokeStyle = '#06b6d4';
-          ctx.fillStyle = '#0f172a';
-          ctx.shadowBlur = 10;
+          ctx.fillStyle = '#0b0f19'; // Dark navy metal fill
+          ctx.shadowBlur = 12;
           ctx.shadowColor = '#06b6d4';
           ctx.lineWidth = 2.5;
 
           ctx.beginPath();
-          ctx.moveTo(0, -22);
-          ctx.lineTo(20, 6);
-          ctx.lineTo(28, 16);
-          ctx.lineTo(10, 13);
-          ctx.lineTo(-10, 13);
-          ctx.lineTo(-28, 16);
-          ctx.lineTo(-20, 6);
+          ctx.moveTo(0, -26); // Extended nose
+          ctx.lineTo(5, -15);
+          ctx.lineTo(18, 5);  // Wing joint
+          ctx.lineTo(32, 16); // Wing tip
+          ctx.lineTo(24, 16); // Wing indent
+          ctx.lineTo(10, 12); // Engine intake
+          ctx.lineTo(-10, 12);
+          ctx.lineTo(-24, 16);
+          ctx.lineTo(-32, 16);
+          ctx.lineTo(-18, 5);
+          ctx.lineTo(-5, -15);
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
 
+          // Neon Wing Tip Accent Stripes
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(22, 10); ctx.lineTo(28, 15);
+          ctx.moveTo(-22, 10); ctx.lineTo(-28, 15);
+          ctx.stroke();
+
+          // Glowing Cockpit core
+          ctx.fillStyle = '#22d3ee';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#22d3ee';
+          ctx.beginPath();
+          ctx.ellipse(0, -6, 5, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Gun Muzzle Flash Effect
           if (v.player.muzzleFlash > 0) {
             ctx.fillStyle = '#ffffff';
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#ffffff';
             ctx.beginPath();
-            ctx.arc(0, -24, 7, 0, Math.PI * 2);
+            ctx.arc(0, -28, 8, 0, Math.PI * 2);
             ctx.fill();
           }
 
+          // Active Shield
           if (v.player.shieldTimer > 0) {
             ctx.strokeStyle = '#10b981';
             ctx.shadowColor = '#10b981';
-            ctx.shadowBlur = 15;
-            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
-            ctx.arc(0, -2, v.player.width * 0.9, 0, Math.PI * 2);
+            ctx.arc(0, -2, v.player.width * 0.95, 0, Math.PI * 2);
             ctx.stroke();
           }
 
@@ -985,7 +1139,7 @@
               <span className="text-sm md:text-lg font-black text-cyan-400 retro-font glow-cyan leading-none">{level}</span>
             </div>
 
-            {/* Power-up Active Tags */}
+            {/* Power-ups Active Tags */}
             <div className="flex items-center space-x-2">
               {doubleFireActive && (
                 <span className="px-2 py-0.5 text-[8px] md:text-[10px] bg-sky-950 border border-sky-400 text-sky-400 font-black rounded tracking-widest uppercase glow-cyan">2X FIRE</span>
@@ -1034,7 +1188,7 @@
           </div>
 
           {/* --- MAIN GAME CANVAS LAYER --- */}
-          <div className="relative flex-1 w-full h-full bg-[#03000a] flex items-center justify-center">
+          <div className="relative flex-1 w-full h-full bg-[#020006] flex items-center justify-center">
             <canvas
               ref={canvasRef}
               width={GAME_WIDTH}
@@ -1076,7 +1230,7 @@
                 </div>
 
                 <p className="text-slate-400 text-xs md:text-sm max-w-md mb-5 font-semibold">
-                  Defend the sector against alien swarms. Collect powerups: <span className="text-sky-400 font-bold">Double Fire (D)</span>, <span className="text-purple-400 font-bold">Auto Shoot (A)</span>, and <span className="text-emerald-400 font-bold">Shields (S)</span>.
+                  Defend the sector against alien swarms. Collect powerups: <span className="text-sky-400 font-bold">Double Fire</span>, <span className="text-purple-400 font-bold">Auto Shoot</span>, and <span className="text-emerald-400 font-bold">Shields</span>.
                 </p>
 
                 {/* Score list */}
