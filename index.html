@@ -194,14 +194,13 @@
         osc.stop(now + 0.3);
       }
 
-      // Play background Menu Loop (Chiptune arpeggio)
       startMenuMusic() {
         if (this.muted) return;
         this.stopAllMusic();
         this.init();
         const ctx = this.ctx;
 
-        const arpeggio = [261.63, 311.13, 392.00, 466.16, 392.00, 311.13]; // C minor 7 arpeggio
+        const arpeggio = [261.63, 311.13, 392.00, 466.16, 392.00, 311.13];
         let step = 0;
 
         const playStep = () => {
@@ -228,14 +227,13 @@
         this.menuMusicInterval = setInterval(playStep, 200);
       }
 
-      // Play background Game Over Music (Melancholic slow chords)
       startGameOverMusic() {
         if (this.muted) return;
         this.stopAllMusic();
         this.init();
         const ctx = this.ctx;
 
-        const melody = [220.00, 196.00, 174.61, 164.81]; // A3, G3, F3, E3 slow tones
+        const melody = [220.00, 196.00, 174.61, 164.81];
         let step = 0;
 
         const playStep = () => {
@@ -249,7 +247,7 @@
           osc.frequency.setValueAtTime(melody[step % melody.length], now);
           
           subOsc.type = 'sine';
-          subOsc.frequency.setValueAtTime(melody[step % melody.length] / 2, now); // Sub bass chord
+          subOsc.frequency.setValueAtTime(melody[step % melody.length] / 2, now);
 
           gain.gain.setValueAtTime(0.08, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
@@ -283,20 +281,17 @@
       const [lives, setLives] = useState(3);
       const [maxLives, setMaxLives] = useState(3);
       const [isMuted, setIsMuted] = useState(sound.muted);
-      const [difficulty, setDifficulty] = useState('medium'); // easy, medium, hard
+      const [difficulty, setDifficulty] = useState('medium');
 
-      // Power-up durations on UI
       const [doubleFireActive, setDoubleFireActive] = useState(false);
       const [autoFireActive, setAutoFireActive] = useState(false);
       const [shieldActive, setShieldActive] = useState(false);
 
-      // Leaderboard
       const [leaderboard, setLeaderboard] = useState(() => {
         return JSON.parse(localStorage.getItem('pixel_defender_leaderboard') || '[]');
       });
       const [playerName, setPlayerName] = useState('');
 
-      // Canvas refs
       const canvasRef = useRef(null);
       const requestRef = useRef(null);
       const keysPressed = useRef({});
@@ -304,7 +299,6 @@
       const GAME_WIDTH = 800;
       const GAME_HEIGHT = 1000;
 
-      // Game Variables
       const gameVars = useRef({
         player: {
           x: GAME_WIDTH / 2,
@@ -330,7 +324,6 @@
         nextSpawnTime: 80,
       });
 
-      // Play start music on mount or start state change
       useEffect(() => {
         if (gameState === 'START') {
           sound.startMenuMusic();
@@ -341,14 +334,12 @@
         }
       }, [gameState, isMuted]);
 
-      // Toggle Mute
       const toggleMute = () => {
         const nextMuted = !isMuted;
         sound.setMute(nextMuted);
         setIsMuted(nextMuted);
       };
 
-      // Keyboard Listeners
       useEffect(() => {
         const handleKeyDown = (e) => {
           if (e.code === 'Space') {
@@ -385,9 +376,8 @@
           window.removeEventListener('keydown', handleKeyDown);
           window.removeEventListener('keyup', handleKeyUp);
         };
-      }, [difficulty]); // re-bind with correct difficulty initialization
+      }, [difficulty]);
 
-      // Parallax Stars initialization
       useEffect(() => {
         const initialStars = [];
         for (let i = 0; i < 120; i++) {
@@ -402,7 +392,6 @@
         gameVars.current.stars = initialStars;
       }, []);
 
-      // Core loop integration
       useEffect(() => {
         if (gameState === 'PLAYING') {
           sound.init();
@@ -417,13 +406,11 @@
         };
       }, [gameState]);
 
-      // Start Game
       const startGame = () => {
         sound.init();
         setScore(0);
         setLevel(1);
         
-        // Setup lives & stats based on difficulty level selection
         let initialLives = 3;
         if (difficulty === 'easy') initialLives = 5;
         if (difficulty === 'hard') initialLives = 1;
@@ -450,7 +437,6 @@
         v.nextSpawnTime = difficulty === 'easy' ? 100 : difficulty === 'hard' ? 65 : 80;
       };
 
-      // Particle generator
       const createExplosion = (x, y, color, sizeClass = 'medium') => {
         const count = sizeClass === 'large' ? 45 : sizeClass === 'medium' ? 25 : 12;
         const v = gameVars.current;
@@ -470,7 +456,6 @@
         }
       };
 
-      // Check / Handle Leaderboard insertion
       const handleLeaderboardSubmit = (e) => {
         e.preventDefault();
         if (!playerName.trim()) return;
@@ -484,7 +469,7 @@
 
         const updated = [...leaderboard, newEntry]
           .sort((a, b) => b.score - a.score)
-          .slice(0, 7); // keep top 7
+          .slice(0, 7);
 
         setLeaderboard(updated);
         localStorage.setItem('pixel_defender_leaderboard', JSON.stringify(updated));
@@ -492,7 +477,6 @@
         setGameState('GAMEOVER');
       };
 
-      // --- GAME LOOP ---
       const gameLoop = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -507,17 +491,14 @@
         if (moveLeft) v.player.x -= v.player.speed;
         if (moveRight) v.player.x += v.player.speed;
 
-        // Bounds
         const halfW = v.player.width / 2;
         if (v.player.x - halfW < 0) v.player.x = halfW;
         if (v.player.x + halfW > GAME_WIDTH) v.player.x = GAME_WIDTH - halfW;
 
-        // Cooldown and Timers Decrements
         if (v.player.cooldown > 0) v.player.cooldown--;
         if (v.player.invincible > 0) v.player.invincible--;
         if (v.player.muzzleFlash > 0) v.player.muzzleFlash--;
 
-        // Power-ups Tick
         if (v.player.doubleFireTimer > 0) {
           v.player.doubleFireTimer--;
           if (v.player.doubleFireTimer === 0) setDoubleFireActive(false);
@@ -531,10 +512,8 @@
           if (v.player.shieldTimer === 0) setShieldActive(false);
         }
 
-        // Shooting logic (Normal / Double Fire)
         if (shootTrigger && v.player.cooldown === 0) {
           if (v.player.doubleFireTimer > 0) {
-            // Twin lasers
             v.lasers.push({
               x: v.player.x - 14,
               y: v.player.y - 15,
@@ -552,7 +531,6 @@
               color: '#38bdf8'
             });
           } else {
-            // Single cyan laser
             v.lasers.push({
               x: v.player.x,
               y: v.player.y - 18,
@@ -572,7 +550,6 @@
         if (v.spawnTimer >= v.nextSpawnTime) {
           v.spawnTimer = 0;
           
-          // Difficulty modifiers on spawning intervals
           const diffFactor = difficulty === 'easy' ? 95 : difficulty === 'hard' ? 65 : 80;
           v.nextSpawnTime = Math.max(20, diffFactor - (level * 5));
 
@@ -581,26 +558,25 @@
           let size = 28;
           let hp = 1;
           
-          // Speed modifiers based on difficulty selection
           const speedMod = difficulty === 'easy' ? 1.8 : difficulty === 'hard' ? 3.5 : 2.5;
           let speed = Math.random() * 1.5 + speedMod + (level * 0.25);
           let points = 10;
-          let color = '#22c55e'; // Green Standard
+          let color = '#22c55e'; // Green Space Invader Icon
 
           if (rand < 0.25) {
             type = 'small';
-            size = 20;
+            size = 22;
             hp = 1;
             speed = Math.random() * 2 + speedMod + 2.0 + (level * 0.3);
             points = 20;
-            color = '#f59e0b'; // Yellow Speed drone
+            color = '#f59e0b'; // Yellow Seeker Drone Icon
           } else if (rand > 0.82) {
             type = 'large';
             size = 46;
             hp = 3 + Math.floor(level / 2);
             speed = Math.random() * 0.8 + speedMod - 1.0 + (level * 0.1);
             points = 35;
-            color = '#ec4899'; // Heavy Pink Asteroid
+            color = '#ec4899'; // Pink Cratered Asteroid Icon
           }
 
           v.enemies.push({
@@ -619,7 +595,6 @@
         }
 
         // 3. PHYSICAL UPDATES
-        // Stars
         v.stars.forEach(s => {
           s.y += s.speed;
           if (s.y > GAME_HEIGHT) {
@@ -628,17 +603,14 @@
           }
         });
 
-        // Lasers
         v.lasers.forEach(l => l.y -= l.speed);
         v.lasers = v.lasers.filter(l => l.y > -20);
 
-        // Enemies
         v.enemies.forEach(e => {
           e.y += e.speed;
           e.rot += e.rotSpeed;
         });
 
-        // Escape boundary detection
         const escapedEnemies = v.enemies.filter(e => e.y > GAME_HEIGHT + e.size);
         if (escapedEnemies.length > 0) {
           escapedEnemies.forEach(() => {
@@ -656,13 +628,11 @@
           v.enemies = v.enemies.filter(e => e.y <= GAME_HEIGHT + e.size);
         }
 
-        // Power-ups updates
         v.powerups.forEach(p => {
           p.y += p.speed;
           p.rot += 0.02;
         });
 
-        // Collect Power-up detection
         for (let i = v.powerups.length - 1; i >= 0; i--) {
           const p = v.powerups[i];
           const dist = Math.hypot(p.x - v.player.x, p.y - v.player.y);
@@ -686,7 +656,6 @@
           }
         }
 
-        // Particles
         v.particles.forEach(p => {
           p.x += p.vx;
           p.y += p.vy;
@@ -695,7 +664,6 @@
         v.particles = v.particles.filter(p => p.alpha > 0);
 
         // 4. COLLISION MANAGEMENT
-        // Laser -> Enemy
         for (let i = v.lasers.length - 1; i >= 0; i--) {
           const l = v.lasers[i];
           for (let j = v.enemies.length - 1; j >= 0; j--) {
@@ -750,7 +718,6 @@
           }
         }
 
-        // Enemy -> Player
         if (v.player.invincible === 0) {
           for (let j = v.enemies.length - 1; j >= 0; j--) {
             const e = v.enemies[j];
@@ -813,7 +780,7 @@
           ctx.shadowBlur = 0;
         });
 
-        // Power-ups drop visuals
+        // Power-ups
         v.powerups.forEach(p => {
           ctx.save();
           ctx.translate(p.x, p.y);
@@ -837,7 +804,7 @@
           ctx.restore();
         });
 
-        // Enemies
+        // Enemies (Custom Obstacle Icons)
         v.enemies.forEach(e => {
           ctx.save();
           ctx.translate(e.x, e.y);
@@ -849,19 +816,32 @@
           ctx.lineWidth = 2.5;
 
           if (e.type === 'small') {
+            // Interceptor Drone Icon: Tri-sail wing outline
             ctx.beginPath();
-            ctx.moveTo(0, -e.size);
-            ctx.lineTo(e.size * 0.7, e.size * 0.7);
-            ctx.lineTo(0, e.size * 0.3);
-            ctx.lineTo(-e.size * 0.7, e.size * 0.7);
+            ctx.moveTo(0, -e.size); // nose
+            ctx.lineTo(e.size * 0.7, e.size * 0.2); // wing right
+            ctx.lineTo(e.size * 0.2, e.size * 0.4); // body indent
+            ctx.lineTo(e.size * 0.4, e.size * 0.8); // thruster-tail right
+            ctx.lineTo(0, e.size * 0.5); // center engine indent
+            ctx.lineTo(-e.size * 0.4, e.size * 0.8); // thruster-tail left
+            ctx.lineTo(-e.size * 0.2, e.size * 0.4);
+            ctx.lineTo(-e.size * 0.7, e.size * 0.2); // wing left
             ctx.closePath();
             ctx.stroke();
-          } else if (e.type === 'large') {
+
+            // Inner glowing orange core circle
+            ctx.fillStyle = '#f97316';
             ctx.beginPath();
-            const pts = 8;
+            ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+          } else if (e.type === 'large') {
+            // Rocky Asteroid Icon: Jagged shape with multi-layered crater details
+            ctx.beginPath();
+            const pts = 10;
             for (let i = 0; i < pts; i++) {
               const angle = (i * Math.PI * 2) / pts;
-              const r = e.size * (0.85 + 0.15 * Math.sin(angle * 3 + e.x));
+              const r = e.size * (0.82 + 0.18 * Math.sin(angle * 3 + e.x));
               const px = Math.cos(angle) * r;
               const py = Math.sin(angle) * r;
               if (i === 0) ctx.moveTo(px, py);
@@ -869,19 +849,54 @@
             }
             ctx.closePath();
             ctx.stroke();
+
+            // Draw circular craters
+            const drawCrater = (cx, cy, cr) => {
+              ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.fillStyle = 'rgba(3, 0, 10, 0.5)';
+              ctx.fill();
+            };
+
+            drawCrater(-e.size * 0.3, -e.size * 0.2, e.size * 0.2);
+            drawCrater(e.size * 0.2, e.size * 0.2, e.size * 0.25);
+            drawCrater(-e.size * 0.1, e.size * 0.4, e.size * 0.12);
+
             if (e.hp < e.maxHp) {
-              ctx.fillStyle = 'rgba(236,72,153,0.3)';
+              ctx.fillStyle = 'rgba(236,72,153,0.2)';
               ctx.fill();
             }
           } else {
+            // Space Invader Alien Icon: Skull Head + antennas + wing appendages
             ctx.beginPath();
-            ctx.moveTo(0, -e.size);
-            ctx.lineTo(e.size * 0.9, -e.size * 0.2);
-            ctx.lineTo(e.size * 0.5, e.size * 0.8);
-            ctx.lineTo(-e.size * 0.5, e.size * 0.8);
-            ctx.lineTo(-e.size * 0.9, -e.size * 0.2);
+            ctx.moveTo(0, -e.size * 0.8); // Top of head
+            ctx.lineTo(e.size * 0.4, -e.size * 0.8);
+            ctx.lineTo(e.size * 0.6, -e.size * 0.5); // Ears
+            ctx.lineTo(e.size * 0.6, -e.size * 0.2);
+            ctx.lineTo(e.size * 0.9, e.size * 0.1); // Wings outer
+            ctx.lineTo(e.size * 0.5, e.size * 0.3);
+            ctx.lineTo(e.size * 0.4, e.size * 0.8); // Tentacles base
+            ctx.lineTo(e.size * 0.2, e.size * 0.5);
+            ctx.lineTo(0, e.size * 0.7); // Bottom center
+            ctx.lineTo(-e.size * 0.2, e.size * 0.5);
+            ctx.lineTo(-e.size * 0.4, e.size * 0.8);
+            ctx.lineTo(-e.size * 0.5, e.size * 0.3);
+            ctx.lineTo(-e.size * 0.9, e.size * 0.1);
+            ctx.lineTo(-e.size * 0.6, -e.size * 0.2);
+            ctx.lineTo(-e.size * 0.6, -e.size * 0.5);
+            ctx.lineTo(-e.size * 0.4, -e.size * 0.8);
             ctx.closePath();
             ctx.stroke();
+
+            // Glow neon eyes
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(-e.size * 0.22, -e.size * 0.15, 3.5, 0, Math.PI * 2);
+            ctx.arc(e.size * 0.22, -e.size * 0.15, 3.5, 0, Math.PI * 2);
+            ctx.fill();
           }
           ctx.restore();
         });
@@ -891,7 +906,6 @@
           ctx.save();
           ctx.translate(v.player.x, v.player.y);
 
-          // Thruster
           const engineGlow = Math.random() * 12 + 8;
           ctx.fillStyle = '#f97316';
           ctx.shadowBlur = engineGlow;
@@ -903,7 +917,6 @@
           ctx.closePath();
           ctx.fill();
 
-          // Cyber Spaceship Outline
           ctx.strokeStyle = '#06b6d4';
           ctx.fillStyle = '#0f172a';
           ctx.shadowBlur = 10;
@@ -922,7 +935,6 @@
           ctx.fill();
           ctx.stroke();
 
-          // Flash
           if (v.player.muzzleFlash > 0) {
             ctx.fillStyle = '#ffffff';
             ctx.shadowBlur = 15;
@@ -932,7 +944,6 @@
             ctx.fill();
           }
 
-          // Active Shield
           if (v.player.shieldTimer > 0) {
             ctx.strokeStyle = '#10b981';
             ctx.shadowColor = '#10b981';
@@ -974,7 +985,7 @@
               <span className="text-sm md:text-lg font-black text-cyan-400 retro-font glow-cyan leading-none">{level}</span>
             </div>
 
-            {/* Power-ups Active Tags */}
+            {/* Power-up Active Tags */}
             <div className="flex items-center space-x-2">
               {doubleFireActive && (
                 <span className="px-2 py-0.5 text-[8px] md:text-[10px] bg-sky-950 border border-sky-400 text-sky-400 font-black rounded tracking-widest uppercase glow-cyan">2X FIRE</span>
